@@ -26,6 +26,7 @@ import (
 
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/strslice"
+	"github.com/docker/go-connections/nat"
 
 	"github.com/nitrictech/boxygen/pkg/backend/dockerfile"
 	"github.com/nitrictech/cli/pkg/utils"
@@ -124,8 +125,11 @@ func (t *golang) FunctionDockerfileForCodeAsConfig(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	con.Run(dockerfile.RunOptions{Command: []string{"apk", "add", "--no-cache", "git"}})
-	con.Run(dockerfile.RunOptions{Command: []string{"go", "install", "github.com/asalkeld/CompileDaemon@d4b10de"}})
+
+	// Allow delve to run on Alpine based containers.
+	con.Run(dockerfile.RunOptions{Command: []string{"apk", "add", "--no-cache", "git", "gcc", "musl-dev"}})
+	con.Run(dockerfile.RunOptions{Command: []string{"go", "install", "github.com/asalkeld/CompileDaemon@d4b10de" }})
+	con.Run(dockerfile.RunOptions{Command: []string{"go", "install", "github.com/go-delve/delve/cmd/dlv@latest"}})
 
 	_, err = w.Write([]byte(strings.Join(con.Lines(), "\n")))
 	return err
@@ -178,9 +182,18 @@ func (t *golang) LaunchOptsForFunction(runCtx string) (LaunchOpts, error) {
 			"-exclude-dir=.git",
 			"-exclude-dir=.nitric",
 			"-directory=.",
+			"-polling-interval=2500",
 			fmt.Sprintf("-polling=%t", osruntime.GOOS == "windows"),
-			fmt.Sprintf("-build=go build -o %s ./%s/...", t.ContainerName(), filepath.ToSlash(filepath.Dir(relHandler))),
-			"-command=./" + t.ContainerName(),
+			fmt.Sprintf("-build=go build -gcflags=all=-N -gcflags=all=-l -o %s ./%s/...", t.ContainerName(), filepath.ToSlash(filepath.Dir(relHandler))),
+			fmt.Sprintf("-command=dlv exec ./%v -l=0.0.0.0:2345 --continue --accept-multiclient --headless --api-version=2", t.ContainerName()),
+		},
+		PortBindings: nat.PortMap{
+			"2345/tcp": []nat.PortBinding{
+				{
+					HostIP: "0.0.0.0",
+					HostPort: "2345",
+				},
+			},
 		},
 		Mounts: []mount.Mount{
 			{
