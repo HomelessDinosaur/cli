@@ -43,6 +43,7 @@ nitric new --help
 
 Documentation for all available commands:
 
+- nitric export : Output the the OpenAPI specification
 - nitric feedback : Provide feedback on your experience with nitric
 - nitric info : Gather information about Nitric and the environment
 - nitric new [projectName] [templateName] : Create a new project
