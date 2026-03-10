@@ -19,6 +19,7 @@ package cloud
 import (
 	"fmt"
 	"io"
+	"slices"
 	"sync"
 
 	"google.golang.org/grpc"
@@ -40,6 +41,7 @@ import (
 	"github.com/nitrictech/cli/pkg/cloud/websockets"
 	"github.com/nitrictech/cli/pkg/grpcx"
 	"github.com/nitrictech/cli/pkg/netx"
+	"github.com/nitrictech/cli/pkg/preview"
 	"github.com/nitrictech/cli/pkg/project/dockerhost"
 	"github.com/nitrictech/cli/pkg/project/localconfig"
 	"github.com/nitrictech/nitric/core/pkg/logger"
@@ -98,9 +100,11 @@ func (lc *LocalCloud) Stop() {
 		logger.Errorf("Error stopping gateway: %s", err.Error())
 	}
 
-	err = lc.Databases.Stop()
-	if err != nil {
-		logger.Errorf("Error stopping databases: %s", err.Error())
+	if lc.Databases != nil {
+		err = lc.Databases.Stop()
+		if err != nil {
+			logger.Errorf("Error stopping databases: %s", err.Error())
+		}
 	}
 }
 
@@ -252,6 +256,7 @@ type LocalCloudOptions struct {
 	LocalConfig     localconfig.LocalConfiguration
 	MigrationRunner sql.MigrationRunner
 	LocalCloudMode  Mode
+	Preview         []preview.Feature
 }
 
 func New(projectName string, opts LocalCloudOptions) (*LocalCloud, error) {
@@ -309,16 +314,20 @@ func New(projectName string, opts LocalCloudOptions) (*LocalCloud, error) {
 		return nil, err
 	}
 
-	connectionStringHost := "localhost"
+	var localDatabaseService *sql.LocalSqlServer
 
-	// Use the host.docker.internal address for connection strings with local cloud run mode
-	if opts.LocalCloudMode == RunMode {
-		connectionStringHost = dockerhost.GetInternalDockerHost()
-	}
+	if slices.Contains(opts.Preview, preview.Feature_SqlDatabases) {
+		connectionStringHost := "localhost"
 
-	localDatabaseService, err := sql.NewLocalSqlServer(projectName, localResources, opts.MigrationRunner, connectionStringHost)
-	if err != nil {
-		return nil, err
+		// Use the host.docker.internal address for connection strings with local cloud run mode
+		if opts.LocalCloudMode == RunMode {
+			connectionStringHost = dockerhost.GetInternalDockerHost()
+		}
+
+		localDatabaseService, err = sql.NewLocalSqlServer(projectName, localResources, opts.MigrationRunner, connectionStringHost)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	localWebsites := websites.NewLocalWebsitesService(localGateway.GetApiAddress, localGateway.GetWebsocketAddress, opts.LocalCloudMode == StartMode)
