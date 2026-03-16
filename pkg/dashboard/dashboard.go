@@ -983,10 +983,13 @@ func New(noBrowser bool, localCloud *cloud.LocalCloud, project *project.Project)
 	localCloud.Schedules.SubscribeToState(dash.updateSchedules)
 	localCloud.Topics.SubscribeToState(dash.updateTopicSubscriptions)
 	localCloud.Storage.SubscribeToState(dash.updateBucketNotifications)
+
 	localCloud.Http.SubscribeToState(dash.updateHttpProxies)
+
 	if localCloud.Databases != nil {
 		localCloud.Databases.SubscribeToState(dash.updateSqlDatabases)
 	}
+
 	localCloud.Websites.SubscribeToState(dash.handleWebsites)
 
 	// subscribe to history events from gateway

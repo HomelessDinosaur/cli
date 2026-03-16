@@ -102,10 +102,13 @@ var _ tea.Model = &TuiModel{}
 
 func (t *TuiModel) Init() tea.Cmd {
 	t.reactiveSub = reactive.NewSubscriber()
+
 	reactive.ListenFor(t.reactiveSub, t.localCloud.Apis.SubscribeToState)
+
 	if t.localCloud.Databases != nil {
 		reactive.ListenFor(t.reactiveSub, t.localCloud.Databases.SubscribeToState)
 	}
+
 	reactive.ListenFor(t.reactiveSub, t.localCloud.Websockets.SubscribeToState)
 	reactive.ListenFor(t.reactiveSub, t.localCloud.Http.SubscribeToState)
 
